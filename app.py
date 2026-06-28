@@ -4,6 +4,8 @@ import json
 import os
 import pandas as pd
 from datetime import datetime, timedelta
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 # Set page config
 st.set_page_config(
@@ -29,6 +31,146 @@ if DATA_DIR:
 else:
     CSV_PATH = os.path.join(APP_DIR, "attendance.csv")
     TIMETABLE_PATH = os.path.join(APP_DIR, "timetable.csv")
+
+# Google Sheets API configuration
+def get_gspread_client():
+    creds_json = os.environ.get("GOOGLE_CREDS_JSON")
+    scopes = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    
+    if creds_json:
+        # Load credentials from env var holding raw JSON string
+        info = json.loads(creds_json)
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(info, scopes)
+    else:
+        # Fall back to local credentials.json
+        creds_path = os.path.join(APP_DIR, "credentials.json")
+        if os.path.exists(creds_path):
+            creds = ServiceAccountCredentials.from_json_keyfile_name(creds_path, scopes)
+        else:
+            raise FileNotFoundError("Google credentials not found in environment (GOOGLE_CREDS_JSON) or local credentials.json")
+            
+    return gspread.authorize(creds)
+
+def get_cloud_sheets():
+    client = get_gspread_client()
+    try:
+        sh = client.open("AttendanceTrackerCloud")
+    except gspread.SpreadsheetNotFound:
+        # Create sheet if not found
+        sh = client.create("AttendanceTrackerCloud")
+        
+    try:
+        wks_attendance = sh.worksheet("Attendance")
+    except gspread.WorksheetNotFound:
+        wks_attendance = sh.add_worksheet(title="Attendance", rows="100", cols="3")
+        wks_attendance.append_row(["Date", "Subject_Name", "Status"])
+        
+    try:
+        wks_timetable = sh.worksheet("Timetable")
+    except gspread.WorksheetNotFound:
+        wks_timetable = sh.add_worksheet(title="Timetable", rows="100", cols="2")
+        wks_timetable.append_row(["Day_of_Week", "Subject_Name"])
+        
+    return wks_attendance, wks_timetable
+
+def sync_cloud_to_local():
+    try:
+        wks_att, wks_tt = get_cloud_sheets()
+        
+        # 1. Fetch Attendance from Cloud
+        att_records = wks_att.get_all_records()
+        if att_records:
+            df_att = pd.DataFrame(att_records)
+        else:
+            df_att = pd.DataFrame(columns=["Date", "Subject_Name", "Status"])
+        
+        # Ensure we have the correct columns
+        if all(col in df_att.columns for col in ["Date", "Subject_Name", "Status"]):
+            df_att.to_csv(CSV_PATH, index=False)
+        
+        # 2. Fetch Timetable from Cloud
+        tt_records = wks_tt.get_all_records()
+        if tt_records:
+            df_tt = pd.DataFrame(tt_records)
+        else:
+            df_tt = pd.DataFrame(columns=["Day_of_Week", "Subject_Name"])
+            
+        # Ensure we have the correct columns
+        if all(col in df_tt.columns for col in ["Day_of_Week", "Subject_Name"]):
+            df_tt.to_csv(TIMETABLE_PATH, index=False)
+            
+        print("Google Sheets: Cloud data successfully pulled to local CSV databases.")
+    except Exception as e:
+        print(f"Warning: Cloud sync to local failed. Operating in Offline Fallback mode. Error: {e}")
+
+def cloud_update_attendance(date, subject, status):
+    try:
+        wks_att, _ = get_cloud_sheets()
+        records = wks_att.get_all_values()
+        found_row_idx = -1
+        for idx, row in enumerate(records[1:], start=2):
+            if len(row) >= 2 and row[0] == date and row[1] == subject:
+                found_row_idx = idx
+                break
+                
+        if found_row_idx != -1:
+            wks_att.update_cell(found_row_idx, 3, status)
+        else:
+            wks_att.append_row([date, subject, status])
+    except Exception as e:
+        print(f"Warning: Cloud update attendance failed (using local fallback). Error: {e}")
+
+def cloud_add_timetable_slot(day, subject):
+    try:
+        _, wks_tt = get_cloud_sheets()
+        records = wks_tt.get_all_values()
+        exists = False
+        for row in records[1:]:
+            if len(row) >= 2 and row[0] == day and row[1] == subject:
+                exists = True
+                break
+        if not exists:
+            wks_tt.append_row([day, subject])
+    except Exception as e:
+        print(f"Warning: Cloud add timetable slot failed (using local fallback). Error: {e}")
+
+def cloud_delete_timetable_slot(day, subject):
+    try:
+        _, wks_tt = get_cloud_sheets()
+        records = wks_tt.get_all_values()
+        found_row_idx = -1
+        for idx, row in enumerate(records[1:], start=2):
+            if len(row) >= 2 and row[0] == day and row[1] == subject:
+                found_row_idx = idx
+                break
+        if found_row_idx != -1:
+            wks_tt.delete_rows(found_row_idx)
+    except Exception as e:
+        print(f"Warning: Cloud delete timetable slot failed (using local fallback). Error: {e}")
+
+def sync_local_to_cloud():
+    try:
+        wks_att, wks_tt = get_cloud_sheets()
+        
+        # Sync Timetable
+        df_tt = get_timetable_df()
+        wks_tt.clear()
+        wks_tt.append_row(["Day_of_Week", "Subject_Name"])
+        if not df_tt.empty:
+            rows = df_tt.values.tolist()
+            wks_tt.append_rows(rows)
+            
+        # Sync Attendance
+        df_att = get_attendance_df()
+        wks_att.clear()
+        wks_att.append_row(["Date", "Subject_Name", "Status"])
+        if not df_att.empty:
+            rows = df_att.values.tolist()
+            wks_att.append_rows(rows)
+            
+        print("Google Sheets: Local data successfully pushed to cloud.")
+    except Exception as e:
+        print(f"Warning: Local to cloud sync failed. Error: {e}")
 
 # Set up the weekly timetable to guarantee at least 3 subjects per day (using 6 unique subjects)
 def setup_timetable():
@@ -117,6 +259,11 @@ def init_csv_files():
 
 init_csv_files()
 
+# Initialize session-level cloud synchronization once per browser load
+if "cloud_sync_done" not in st.session_state:
+    sync_cloud_to_local()
+    st.session_state["cloud_sync_done"] = True
+
 # Interfacing with C backend
 def run_analytics(cmd, *args):
     command = [ANALYTICS_BIN, cmd]
@@ -134,6 +281,13 @@ def run_analytics(cmd, *args):
     except Exception as e:
         st.error(f"Unexpected error: {e}")
         return None
+
+# Attendance record wrapper for Google Sheets sync
+def record_attendance_update(date, subject, status):
+    # Update locally via C binary
+    run_analytics("update", date, subject, status)
+    # Update in Google Sheets
+    cloud_update_attendance(date, subject, status)
 
 # Always initialize today's date on app start
 if os.path.exists(ANALYTICS_BIN):
@@ -158,12 +312,16 @@ def add_timetable_slot(day, subject):
     new_row = pd.DataFrame([{"Day_of_Week": day, "Subject_Name": subject}])
     df = pd.concat([df, new_row], ignore_index=True)
     df.to_csv(TIMETABLE_PATH, index=False)
+    # Sync to cloud
+    cloud_add_timetable_slot(day, subject)
     return True
 
 def delete_timetable_slot(day, subject):
     df = get_timetable_df()
     df = df[~((df["Day_of_Week"] == day) & (df["Subject_Name"] == subject))]
     df.to_csv(TIMETABLE_PATH, index=False)
+    # Sync to cloud
+    cloud_delete_timetable_slot(day, subject)
 
 # Inject CSS for Glassmorphic Dark UI
 st.markdown("""
@@ -450,15 +608,15 @@ if page == "Dashboard":
                     b_cols = st.columns(3)
                     with b_cols[0]:
                         if st.button("Present", key=f"btn_p_{sub}", use_container_width=True):
-                            run_analytics("update", today_str, sub, "Present")
+                            record_attendance_update(today_str, sub, "Present")
                             st.rerun()
                     with b_cols[1]:
                         if st.button("Absent", key=f"btn_a_{sub}", use_container_width=True):
-                            run_analytics("update", today_str, sub, "Absent")
+                            record_attendance_update(today_str, sub, "Absent")
                             st.rerun()
                     with b_cols[2]:
                         if st.button("Holiday", key=f"btn_h_{sub}", use_container_width=True):
-                            run_analytics("update", today_str, sub, "Holiday")
+                            record_attendance_update(today_str, sub, "Holiday")
                             st.rerun()
     else:
         st.info("No classes scheduled for today in the timetable.")
@@ -472,6 +630,7 @@ if page == "Dashboard":
                 setup_timetable()
                 setup_mock_attendance()
                 run_analytics("init")
+                sync_local_to_cloud()
                 st.success("Re-injected June 2026 mock data default schedule!")
                 st.rerun()
         with diag_cols[1]:
@@ -483,6 +642,7 @@ if page == "Dashboard":
                 df = pd.DataFrame(columns=["Date", "Subject_Name", "Status"])
                 df.to_csv(CSV_PATH, index=False)
                 run_analytics("init")
+                sync_local_to_cloud()
                 st.success("Attendance database cleared!")
                 st.rerun()
 
@@ -512,17 +672,17 @@ elif page == "Edit History":
         btn_hist_cols = st.columns(3)
         with btn_hist_cols[0]:
             if st.button("Set Present", key="set_p_hist", use_container_width=True):
-                run_analytics("update", hist_date_str, hist_subject, "Present")
+                record_attendance_update(hist_date_str, hist_subject, "Present")
                 st.success("Marked Present!")
                 st.rerun()
         with btn_hist_cols[1]:
             if st.button("Set Absent", key="set_a_hist", use_container_width=True):
-                run_analytics("update", hist_date_str, hist_subject, "Absent")
+                record_attendance_update(hist_date_str, hist_subject, "Absent")
                 st.success("Marked Absent!")
                 st.rerun()
         with btn_hist_cols[2]:
             if st.button("Set Holiday", key="set_h_hist", use_container_width=True):
-                run_analytics("update", hist_date_str, hist_subject, "Holiday")
+                record_attendance_update(hist_date_str, hist_subject, "Holiday")
                 st.success("Marked Holiday!")
                 st.rerun()
 
