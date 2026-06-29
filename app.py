@@ -694,9 +694,9 @@ elif page == "Edit History":
     
     # State initialization for calendar
     if "cal_month" not in st.session_state:
-        st.session_state["cal_month"] = 6
+        st.session_state["cal_month"] = datetime.now().month
     if "cal_year" not in st.session_state:
-        st.session_state["cal_year"] = 2026
+        st.session_state["cal_year"] = datetime.now().year
         
     import calendar
     month_name = calendar.month_name[st.session_state["cal_month"]]
@@ -712,7 +712,7 @@ elif page == "Edit History":
                 st.session_state["cal_year"] -= 1
             st.rerun()
     with nav_cols[1]:
-        st.markdown(f"<h4 style='text-align: center; margin: 0;'>📅 {month_name} {year}</h4>", unsafe_allow_html=True)
+        st.markdown(f"<h4 style='text-align: center; margin: 0;'>{month_name} {year}</h4>", unsafe_allow_html=True)
     with nav_cols[2]:
         if st.button("▶", key="next_month_btn", use_container_width=True):
             st.session_state["cal_month"] += 1
@@ -722,6 +722,7 @@ elif page == "Edit History":
             st.rerun()
             
     st.markdown(f"Monthly visual grids for **{month_name} {year}** per scheduled subject-day slot in the weekly timetable.")
+
 
     
     # Retrieve all unique timetable slots
@@ -771,33 +772,28 @@ elif page == "Edit History":
                 date_str = curr_date.strftime("%d-%m-%y")
                 curr_day_name = curr_date.strftime("%A")
                 
-                # CORE LOGIC RULE: Default to Yellow Holiday if subject is not scheduled on this day of week
-                if curr_day_name in scheduled_days:
-                    # Match recorded status in attendance database
-                    row_att = sub_att[sub_att["Date"] == date_str]
-                    if not row_att.empty:
-                        status = row_att.iloc[0]["Status"]
-                        if status == "Present":
-                            cell_bg = "#10b981" # Green
-                            cell_border = "#059669"
-                            cell_text = "#ffffff"
-                        elif status == "Absent":
-                            cell_bg = "#ef4444" # Red
-                            cell_border = "#dc2626"
-                            cell_text = "#ffffff"
-                        elif status == "Holiday":
-                            cell_bg = "#f59e0b" # Yellow
-                            cell_border = "#d97706"
-                            cell_text = "#ffffff"
-                        else:
-                            cell_bg = "#f59e0b"
-                            cell_border = "#d97706"
-                            cell_text = "#ffffff"
+                # Match recorded status in attendance database first (allows overrides on non-scheduled days)
+                row_att = sub_att[sub_att["Date"] == date_str]
+                if not row_att.empty:
+                    status = row_att.iloc[0]["Status"]
+                    if status == "Present":
+                        cell_bg = "#10b981" # Green
+                        cell_border = "#059669"
+                        cell_text = "#ffffff"
+                    elif status == "Absent":
+                        cell_bg = "#ef4444" # Red
+                        cell_border = "#dc2626"
+                        cell_text = "#ffffff"
+                    elif status == "Holiday":
+                        cell_bg = "#f59e0b" # Yellow
+                        cell_border = "#d97706"
+                        cell_text = "#ffffff"
                     else:
                         cell_bg = "#f59e0b"
                         cell_border = "#d97706"
                         cell_text = "#ffffff"
                 else:
+                    # Default to Yellow Holiday if no attendance record exists
                     cell_bg = "#f59e0b"
                     cell_border = "#d97706"
                     cell_text = "#ffffff"
