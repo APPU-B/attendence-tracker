@@ -859,3 +859,62 @@ elif page == "Manage Timetable":
                     st.rerun()
         else:
             st.info("No slots to move.")
+
+    st.markdown("---")
+    st.write("### Delete a Subject")
+    
+    df_att = get_attendance_df()
+    df_tt = get_timetable_df()
+    unique_subjects = sorted(list(set(df_tt["Subject_Name"].dropna().tolist() + df_att["Subject_Name"].dropna().tolist())))
+    
+    if unique_subjects:
+        purge_subject = st.selectbox("Select Subject to Purge:", unique_subjects, key="purge_subject_select")
+        
+        with st.expander("⚠️ Review Purge Warning & Confirm"):
+            st.warning(f"This will permanently delete all records of '{purge_subject}' from the local database and the cloud sheet. This action cannot be undone.")
+            confirm = st.checkbox("I understand this action cannot be undone", key="purge_confirm_chk")
+            if confirm:
+                if st.button("Delete Subject & All History permanently", key="btn_purge_subject", use_container_width=True):
+                    try:
+                        # a) Timetable Purge: Delete every row in the local timetable data structure where the subject matches the selected dropdown name.
+                        df_tt_clean = df_tt[df_tt["Subject_Name"] != purge_subject]
+                        df_tt_clean.to_csv(TIMETABLE_PATH, index=False)
+                        
+                        # b) Attendance History Purge: Delete every row in the local attendance history data structure where the subject matches the selected dropdown name.
+                        df_att_clean = df_att[df_att["Subject_Name"] != purge_subject]
+                        df_att_clean.to_csv(CSV_PATH, index=False)
+                        
+                        # c) Cloud Sync Broadcast: Execute a full data rewrite to the 'AttendanceTrackerCloud' Google Sheet workbook, wiping those corresponding rows from both the 'Attendance' and 'Timetable' worksheets instantly.
+                        try:
+                            wks_att, wks_tt = get_cloud_sheets()
+                            
+                            # Rewrite Timetable
+                            wks_tt.clear()
+                            wks_tt.append_row(["Day_of_Week", "Subject_Name"])
+                            if not df_tt_clean.empty:
+                                wks_tt.append_rows(df_tt_clean.values.tolist())
+                                
+                            # Rewrite Attendance
+                            wks_att.clear()
+                            wks_att.append_row(["Date", "Subject_Name", "Status"])
+                            if not df_att_clean.empty:
+                                wks_att.append_rows(df_att_clean.values.tolist())
+                        except Exception as cloud_err:
+                            raise RuntimeError(f"Cloud rewrite failed: {cloud_err}")
+                        
+                        # d) Local Cache Clearing: Force a clear on all active Streamlit data caches and execute 'st.rerun()' to instantly refresh the homepage card renders.
+                        st.cache_data.clear()
+                        st.cache_resource.clear()
+                        
+                        st.success(f"Successfully purged subject '{purge_subject}' and all history!")
+                        
+                        # Re-initialize the C backend just in case
+                        if os.environ.get("ANALYTICS_BIN") or os.path.exists(ANALYTICS_BIN):
+                            run_analytics("init")
+                            
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error during database purge: {e}")
+    else:
+        st.info("No subjects found in timetable or attendance history.")
+

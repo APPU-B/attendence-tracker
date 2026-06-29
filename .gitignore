@@ -18,3 +18,7 @@ Thumbs.db
 
 # Log files
 *.log
+
+# Credentials
+credentials.json
+
