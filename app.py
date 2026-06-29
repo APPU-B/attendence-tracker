@@ -19,6 +19,15 @@ st.set_page_config(
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 ANALYTICS_BIN = os.path.join(APP_DIR, "analytics")
 
+# Self-healing: compile C backend if missing
+if not os.path.exists(ANALYTICS_BIN):
+    try:
+        print("C Backend binary missing. Attempting to compile via Makefile...")
+        subprocess.run(["make"], check=True, cwd=APP_DIR)
+    except Exception as compilation_error:
+        print(f"C Backend dynamic compilation failed: {compilation_error}")
+
+
 # Resolve dynamic data paths for production deployment
 DATA_DIR = os.environ.get("DATA_DIR")
 if not DATA_DIR and os.path.isdir("/app/data"):
@@ -282,12 +291,16 @@ def run_analytics(cmd, *args):
         st.error(f"Unexpected error: {e}")
         return None
 
+import threading
+
 # Attendance record wrapper for Google Sheets sync
 def record_attendance_update(date, subject, status):
     # Update locally via C binary
     run_analytics("update", date, subject, status)
-    # Update in Google Sheets
-    cloud_update_attendance(date, subject, status)
+    # Clear cache to show new data in statistics
+    st.cache_data.clear()
+    # Update in Google Sheets asynchronously
+    threading.Thread(target=cloud_update_attendance, args=(date, subject, status), daemon=True).start()
 
 # Always initialize today's date on app start
 if os.path.exists(ANALYTICS_BIN):
@@ -312,16 +325,21 @@ def add_timetable_slot(day, subject):
     new_row = pd.DataFrame([{"Day_of_Week": day, "Subject_Name": subject}])
     df = pd.concat([df, new_row], ignore_index=True)
     df.to_csv(TIMETABLE_PATH, index=False)
-    # Sync to cloud
-    cloud_add_timetable_slot(day, subject)
+    # Clear cache to show new data in statistics
+    st.cache_data.clear()
+    # Sync to cloud asynchronously
+    threading.Thread(target=cloud_add_timetable_slot, args=(day, subject), daemon=True).start()
     return True
 
 def delete_timetable_slot(day, subject):
     df = get_timetable_df()
     df = df[~((df["Day_of_Week"] == day) & (df["Subject_Name"] == subject))]
     df.to_csv(TIMETABLE_PATH, index=False)
-    # Sync to cloud
-    cloud_delete_timetable_slot(day, subject)
+    # Clear cache to show new data in statistics
+    st.cache_data.clear()
+    # Sync to cloud asynchronously
+    threading.Thread(target=cloud_delete_timetable_slot, args=(day, subject), daemon=True).start()
+
 
 # Inject CSS for Glassmorphic Dark UI
 st.markdown("""
@@ -438,10 +456,14 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(.below-82-marker):hover {
 st.sidebar.markdown("# ⚙️ Navigation Menu")
 page = st.sidebar.radio("Go to:", ["Dashboard", "Edit History", "Manage Timetable"])
 
-# Fetch current analytics from backend
-stats = run_analytics("status")
-if not stats:
-    stats = []
+@st.cache_data
+def get_cached_status():
+    res = run_analytics("status")
+    return res if res else []
+
+# Fetch current analytics from backend (using cache)
+stats = get_cached_status()
+
 
 # View 1: Dashboard
 if page == "Dashboard":
@@ -630,6 +652,7 @@ if page == "Dashboard":
                 setup_timetable()
                 setup_mock_attendance()
                 run_analytics("init")
+                st.cache_data.clear()
                 sync_local_to_cloud()
                 st.success("Re-injected June 2026 mock data default schedule!")
                 st.rerun()
@@ -642,6 +665,7 @@ if page == "Dashboard":
                 df = pd.DataFrame(columns=["Date", "Subject_Name", "Status"])
                 df.to_csv(CSV_PATH, index=False)
                 run_analytics("init")
+                st.cache_data.clear()
                 sync_local_to_cloud()
                 st.success("Attendance database cleared!")
                 st.rerun()
@@ -925,33 +949,32 @@ elif page == "Manage Timetable":
                         df_att_clean = df_att[df_att["Subject_Name"] != purge_subject]
                         df_att_clean.to_csv(CSV_PATH, index=False)
                         
-                        # c) Cloud Sync Broadcast: Execute a full data rewrite to the 'AttendanceTrackerCloud' Google Sheet workbook, wiping those corresponding rows from both the 'Attendance' and 'Timetable' worksheets instantly.
-                        cloud_error_msg = None
-                        try:
-                            wks_att, wks_tt = get_cloud_sheets()
-                            
-                            # Rewrite Timetable
-                            wks_tt.clear()
-                            wks_tt.append_row(["Day_of_Week", "Subject_Name"])
-                            if not df_tt_clean.empty:
-                                wks_tt.append_rows(df_tt_clean.values.tolist())
+                        # c) Cloud Sync Broadcast: Execute a full data rewrite in a background thread
+                        def perform_cloud_purge(df_tt_c, df_att_c):
+                            try:
+                                wks_att, wks_tt = get_cloud_sheets()
                                 
-                            # Rewrite Attendance
-                            wks_att.clear()
-                            wks_att.append_row(["Date", "Subject_Name", "Status"])
-                            if not df_att_clean.empty:
-                                wks_att.append_rows(df_att_clean.values.tolist())
-                        except Exception as cloud_err:
-                            cloud_error_msg = f"Cloud rewrite failed: {cloud_err}. The deletion was completed locally only."
+                                # Rewrite Timetable
+                                wks_tt.clear()
+                                wks_tt.append_row(["Day_of_Week", "Subject_Name"])
+                                if not df_tt_c.empty:
+                                    wks_tt.append_rows(df_tt_c.values.tolist())
+                                    
+                                # Rewrite Attendance
+                                wks_att.clear()
+                                wks_att.append_row(["Date", "Subject_Name", "Status"])
+                                if not df_att_c.empty:
+                                    wks_att.append_rows(df_att_c.values.tolist())
+                            except Exception as cloud_err:
+                                print(f"Asynchronous cloud purge failed: {cloud_err}")
+                                
+                        threading.Thread(target=perform_cloud_purge, args=(df_tt_clean, df_att_clean), daemon=True).start()
                         
                         # d) Local Cache Clearing: Force a clear on all active Streamlit data caches and execute 'st.rerun()' to instantly refresh the homepage card renders.
                         st.cache_data.clear()
                         st.cache_resource.clear()
                         
-                        if cloud_error_msg:
-                            st.session_state["purge_warning"] = cloud_error_msg
-                        else:
-                            st.session_state["purge_success"] = f"Successfully purged subject '{purge_subject}' and all history locally and on the cloud!"
+                        st.session_state["purge_success"] = f"Successfully purged subject '{purge_subject}' and all history! (Cloud update is syncing in the background)"
                         
                         # Re-initialize the C backend just in case
                         if os.environ.get("ANALYTICS_BIN") or os.path.exists(ANALYTICS_BIN):
