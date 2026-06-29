@@ -1,23 +1,21 @@
-# 📅 Automated Attendance Tracker
+# Automated Attendance Tracker
 
 An enterprise-grade, automated weekly attendance tracking application engineered with a **Streamlit** frontend and a high-performance **C backend**. The system features a modern glassmorphic dark user interface, predictive attendance analytics (permissible absence recommendations based on an **82% attendance threshold**), and a real-time **Google Sheets synchronization layer** equipped with an offline fallback mechanism.
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
-* **Glassmorphic Dark Dashboard**: A responsive, high-fidelity layout providing consolidated attendance metrics and detailed evaluation cards for individual scheduled subjects.
-* **Predictive Analytics Engine (C Backend)**: High-speed, compiled computational modules executing directly from the C binary to determine:
-  * Attendance percentages calculated per subject.
-  * Permissible absence limits: quantitative metrics indicating whether a user can safely miss *N* upcoming classes or if the current standing falls below the 82% threshold, requiring mandatory attendance for the next *M* consecutive sessions.
-* **Dynamic Calendar Ledger**: Comprehensive monthly grids (M-T-W-T-F-S-S) for rigorous historical tracking, supporting retroactive modification of attendance records.
+* Attendance percentages calculated per subject.
+* Permissible absence limits: quantitative metrics indicating whether a user can safely miss *N* upcoming classes or if the current standing falls below the 82% threshold, requiring mandatory attendance for the next *M* consecutive sessions.
+* **Calendar Ledger**: Comprehensive monthly grids (M-T-W-T-F-S-S) for rigorous historical tracking, supporting modification of attendance records.
 * **Timetable Configuration Workspace**: A day-by-day scheduling matrix allowing users to efficiently provision, reallocate, or de-provision subject slots.
 * **Cascading Record Deletion**: Instantly and permanently purges a subject along with all interconnected historical logs across local CSV storage and remote Google Sheets architectures.
 * **Google Sheets Cloud Sync Layer**: Fully integrated bidirectional worksheet synchronization with automated credential validation protocols and robust local offline fallback.
 
 ---
 
-## 🛠️ Architecture Overview
+## Architecture Overview 🛠️
 
 The system architecture optimizes workload distribution by utilizing Python/Streamlit for the presentation layer and data synchronization, while delegating intensive analytical computations to a compiled C module.
 
@@ -42,7 +40,7 @@ graph TD
 
 ---
 
-## 📦 Getting Started
+## Getting Started
 
 ### Prerequisites
 
