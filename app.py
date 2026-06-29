@@ -691,7 +691,38 @@ elif page == "Edit History":
     # ------------------
     st.write("---")
     st.write("### Complete Attendance Log")
-    st.markdown("Monthly visual grids for **June 2026** per scheduled subject-day slot in the weekly timetable.")
+    
+    # State initialization for calendar
+    if "cal_month" not in st.session_state:
+        st.session_state["cal_month"] = 6
+    if "cal_year" not in st.session_state:
+        st.session_state["cal_year"] = 2026
+        
+    import calendar
+    month_name = calendar.month_name[st.session_state["cal_month"]]
+    year = st.session_state["cal_year"]
+    
+    # Month selection controls
+    nav_cols = st.columns([1, 4, 1])
+    with nav_cols[0]:
+        if st.button("◀", key="prev_month_btn", use_container_width=True):
+            st.session_state["cal_month"] -= 1
+            if st.session_state["cal_month"] == 0:
+                st.session_state["cal_month"] = 12
+                st.session_state["cal_year"] -= 1
+            st.rerun()
+    with nav_cols[1]:
+        st.markdown(f"<h4 style='text-align: center; margin: 0;'>📅 {month_name} {year}</h4>", unsafe_allow_html=True)
+    with nav_cols[2]:
+        if st.button("▶", key="next_month_btn", use_container_width=True):
+            st.session_state["cal_month"] += 1
+            if st.session_state["cal_month"] == 13:
+                st.session_state["cal_month"] = 1
+                st.session_state["cal_year"] += 1
+            st.rerun()
+            
+    st.markdown(f"Monthly visual grids for **{month_name} {year}** per scheduled subject-day slot in the weekly timetable.")
+
     
     # Retrieve all unique timetable slots
     df_timetable = get_timetable_df()
@@ -728,9 +759,15 @@ elif page == "Edit History":
 <div style="text-align: center; font-size: 0.7rem; color: rgba(255,255,255,0.65); font-weight: 600;">S</div>
 <div style="text-align: center; font-size: 0.7rem; color: rgba(255,255,255,0.65); font-weight: 600;">S</div>"""
             
-            start_date = datetime(2026, 6, 1) # Monday
-            for day in range(1, 31):
-                curr_date = start_date + timedelta(days=day - 1)
+            # Get starting weekday (0=Monday, 6=Sunday) and total number of days in the month
+            first_weekday, num_days = calendar.monthrange(year, st.session_state["cal_month"])
+            
+            # Print empty offset cells to align the first day to the correct weekday column
+            for _ in range(first_weekday):
+                html += '<div style="background-color: transparent; border: 1px solid transparent;"></div>'
+                
+            for day in range(1, num_days + 1):
+                curr_date = datetime(year, st.session_state["cal_month"], day)
                 date_str = curr_date.strftime("%d-%m-%y")
                 curr_day_name = curr_date.strftime("%A")
                 
