@@ -863,7 +863,15 @@ elif page == "Manage Timetable":
     st.markdown("---")
     st.write("### Delete a Subject")
     
+    if "purge_success" in st.session_state:
+        st.success(st.session_state["purge_success"])
+        del st.session_state["purge_success"]
+    if "purge_warning" in st.session_state:
+        st.warning(st.session_state["purge_warning"])
+        del st.session_state["purge_warning"]
+        
     df_att = get_attendance_df()
+
     df_tt = get_timetable_df()
     unique_subjects = sorted(list(set(df_tt["Subject_Name"].dropna().tolist() + df_att["Subject_Name"].dropna().tolist())))
     
@@ -885,6 +893,7 @@ elif page == "Manage Timetable":
                         df_att_clean.to_csv(CSV_PATH, index=False)
                         
                         # c) Cloud Sync Broadcast: Execute a full data rewrite to the 'AttendanceTrackerCloud' Google Sheet workbook, wiping those corresponding rows from both the 'Attendance' and 'Timetable' worksheets instantly.
+                        cloud_error_msg = None
                         try:
                             wks_att, wks_tt = get_cloud_sheets()
                             
@@ -900,13 +909,16 @@ elif page == "Manage Timetable":
                             if not df_att_clean.empty:
                                 wks_att.append_rows(df_att_clean.values.tolist())
                         except Exception as cloud_err:
-                            raise RuntimeError(f"Cloud rewrite failed: {cloud_err}")
+                            cloud_error_msg = f"Cloud rewrite failed: {cloud_err}. The deletion was completed locally only."
                         
                         # d) Local Cache Clearing: Force a clear on all active Streamlit data caches and execute 'st.rerun()' to instantly refresh the homepage card renders.
                         st.cache_data.clear()
                         st.cache_resource.clear()
                         
-                        st.success(f"Successfully purged subject '{purge_subject}' and all history!")
+                        if cloud_error_msg:
+                            st.session_state["purge_warning"] = cloud_error_msg
+                        else:
+                            st.session_state["purge_success"] = f"Successfully purged subject '{purge_subject}' and all history locally and on the cloud!"
                         
                         # Re-initialize the C backend just in case
                         if os.environ.get("ANALYTICS_BIN") or os.path.exists(ANALYTICS_BIN):
@@ -917,4 +929,5 @@ elif page == "Manage Timetable":
                         st.error(f"Error during database purge: {e}")
     else:
         st.info("No subjects found in timetable or attendance history.")
+
 
