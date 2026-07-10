@@ -184,47 +184,41 @@ def sync_local_to_cloud():
 # Set up the weekly timetable to guarantee at least 3 subjects per day (using 6 unique subjects)
 def setup_timetable():
     timetable_data = [
-        {"Day_of_Week": "Monday", "Subject_Name": "Mathematics"},
-        {"Day_of_Week": "Monday", "Subject_Name": "Chemistry"},
-        {"Day_of_Week": "Monday", "Subject_Name": "Biology"},
+        {"Day_of_Week": "Monday", "Subject_Name": "CNM"},
+        {"Day_of_Week": "Monday", "Subject_Name": "DS-I"},
+        {"Day_of_Week": "Monday", "Subject_Name": "DBMSL"},
         
-        {"Day_of_Week": "Tuesday", "Subject_Name": "Mathematics"},
-        {"Day_of_Week": "Tuesday", "Subject_Name": "Physics"},
-        {"Day_of_Week": "Tuesday", "Subject_Name": "History"},
+        {"Day_of_Week": "Tuesday", "Subject_Name": "OS"},
+        {"Day_of_Week": "Tuesday", "Subject_Name": "DS-I"},
+        {"Day_of_Week": "Tuesday", "Subject_Name": "OSCL"},
+        {"Day_of_Week": "Tuesday", "Subject_Name": "DBMS"},
         
-        {"Day_of_Week": "Wednesday", "Subject_Name": "Physics"},
-        {"Day_of_Week": "Wednesday", "Subject_Name": "Chemistry"},
-        {"Day_of_Week": "Wednesday", "Subject_Name": "English"},
+        {"Day_of_Week": "Wednesday", "Subject_Name": "DS-I L"},
+        {"Day_of_Week": "Wednesday", "Subject_Name": "SCHIE"},
+        {"Day_of_Week": "Wednesday", "Subject_Name": "OOPL"},
+        {"Day_of_Week": "Wednesday", "Subject_Name": "DBMS"},
         
-        {"Day_of_Week": "Thursday", "Subject_Name": "Mathematics"},
-        {"Day_of_Week": "Thursday", "Subject_Name": "English"},
-        {"Day_of_Week": "Thursday", "Subject_Name": "Biology"},
+        {"Day_of_Week": "Thursday", "Subject_Name": "CNM"},
+        {"Day_of_Week": "Thursday", "Subject_Name": "OOPL"},
+        {"Day_of_Week": "Thursday", "Subject_Name": "DBMS"},
+        {"Day_of_Week": "Thursday", "Subject_Name": "OS"},
         
-        {"Day_of_Week": "Friday", "Subject_Name": "Physics"},
-        {"Day_of_Week": "Friday", "Subject_Name": "Chemistry"},
-        {"Day_of_Week": "Friday", "Subject_Name": "History"},
-        
-        {"Day_of_Week": "Saturday", "Subject_Name": "Mathematics"},
-        {"Day_of_Week": "Saturday", "Subject_Name": "Physics"},
-        {"Day_of_Week": "Saturday", "Subject_Name": "Biology"},
-        
-        {"Day_of_Week": "Sunday", "Subject_Name": "Chemistry"},
-        {"Day_of_Week": "Sunday", "Subject_Name": "History"},
-        {"Day_of_Week": "Sunday", "Subject_Name": "English"}
+        {"Day_of_Week": "Friday", "Subject_Name": "CNM"},
+        {"Day_of_Week": "Friday", "Subject_Name": "DS-I"},
+        {"Day_of_Week": "Friday", "Subject_Name": "DBMS"},
+        {"Day_of_Week": "Friday", "Subject_Name": "OS"}
     ]
     df = pd.DataFrame(timetable_data)
     df.to_csv(TIMETABLE_PATH, index=False)
 
 # Setup June 2026 Mock Attendance (June 1 to June 30, 2026) in dd-mm-yy format
 def setup_mock_attendance():
-    import random
-    random.seed(42)
-    
     tt_df = pd.read_csv(TIMETABLE_PATH)
     records = []
-    start_date = datetime(2026, 6, 1)
+    start_date = datetime(2026, 7, 6)
     
-    for day_offset in range(30):
+    # Generate mock records from July 6, 2026 to today (July 10, 2026)
+    for day_offset in range(5):
         curr_date = start_date + timedelta(days=day_offset)
         date_str = curr_date.strftime("%d-%m-%y")
         day_of_week = curr_date.strftime("%A")
@@ -233,22 +227,8 @@ def setup_mock_attendance():
         scheduled = tt_df[tt_df["Day_of_Week"] == day_of_week]["Subject_Name"].tolist()
         
         for sub in scheduled:
-            # Guarantee warning threshold cases (<82%) and success buffer cases (>=82%)
-            if sub == "Mathematics" and day_of_week == "Monday":
-                status = "Absent" if (day_offset % 3 == 0) else "Present" # ~66%
-            elif sub == "Physics" and day_of_week == "Tuesday":
-                status = "Absent" if (day_offset % 4 == 0) else "Present" # ~75%
-            elif sub == "Chemistry" and day_of_week == "Wednesday":
-                status = "Absent" if (day_offset % 10 == 0) else "Present" # ~90%
-            else:
-                # Realistic randomized mix of Present, Absent, and Holiday
-                rand = random.random()
-                if rand < 0.80:
-                    status = "Present"
-                elif rand < 0.92:
-                    status = "Absent"
-                else:
-                    status = "Holiday"
+            # All marked as Absent (not attended)
+            status = "Absent"
             records.append({"Date": date_str, "Subject_Name": sub, "Status": status})
             
     df_mock = pd.DataFrame(records)
@@ -643,32 +623,7 @@ if page == "Dashboard":
     else:
         st.info("No classes scheduled for today in the timetable.")
         
-    # Diagnostics (Main Window)
-    st.write("---")
-    with st.expander("🛠️ Diagnostics & Simulation Tools"):
-        diag_cols = st.columns(2)
-        with diag_cols[0]:
-            if st.button("🔄 Re-Inject June 2026 Mock Dataset", use_container_width=True):
-                setup_timetable()
-                setup_mock_attendance()
-                run_analytics("init")
-                st.cache_data.clear()
-                sync_local_to_cloud()
-                st.success("Re-injected June 2026 mock data default schedule!")
-                st.rerun()
-        with diag_cols[1]:
-            if st.button("🧹 Reset Databases & Start Clean", use_container_width=True):
-                if os.path.exists(CSV_PATH):
-                    os.remove(CSV_PATH)
-                setup_timetable() # populated weekly schedule
-                # write blank attendance
-                df = pd.DataFrame(columns=["Date", "Subject_Name", "Status"])
-                df.to_csv(CSV_PATH, index=False)
-                run_analytics("init")
-                st.cache_data.clear()
-                sync_local_to_cloud()
-                st.success("Attendance database cleared!")
-                st.rerun()
+
 
 # View 2: Edit History
 elif page == "Edit History":
