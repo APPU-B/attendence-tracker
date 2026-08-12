@@ -7,6 +7,14 @@ from datetime import datetime, timedelta
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
+import sys
+
+def safe_print(msg):
+    try:
+        print(msg, flush=True)
+    except Exception:
+        pass
+
 # Set page config
 st.set_page_config(
     page_title="Automated Attendance Tracker",
@@ -22,10 +30,10 @@ ANALYTICS_BIN = os.path.join(APP_DIR, "analytics")
 # Self-healing: compile C backend if missing
 if not os.path.exists(ANALYTICS_BIN):
     try:
-        print("C Backend binary missing. Attempting to compile via Makefile...")
+        safe_print("C Backend binary missing. Attempting to compile via Makefile...")
         subprocess.run(["make"], check=True, cwd=APP_DIR)
     except Exception as compilation_error:
-        print(f"C Backend dynamic compilation failed: {compilation_error}")
+        safe_print(f"C Backend dynamic compilation failed: {compilation_error}")
 
 
 # Resolve dynamic data paths for production deployment
@@ -108,9 +116,9 @@ def sync_cloud_to_local():
         if all(col in df_tt.columns for col in ["Day_of_Week", "Subject_Name"]):
             df_tt.to_csv(TIMETABLE_PATH, index=False)
             
-        print("Google Sheets: Cloud data successfully pulled to local CSV databases.")
+        safe_print("Google Sheets: Cloud data successfully pulled to local CSV databases.")
     except Exception as e:
-        print(f"Warning: Cloud sync to local failed. Operating in Offline Fallback mode. Error: {e}")
+        safe_print(f"Warning: Cloud sync to local failed. Operating in Offline Fallback mode. Error: {e}")
 
 def cloud_update_attendance(date, subject, status):
     try:
@@ -127,7 +135,7 @@ def cloud_update_attendance(date, subject, status):
         else:
             wks_att.append_row([date, subject, status])
     except Exception as e:
-        print(f"Warning: Cloud update attendance failed (using local fallback). Error: {e}")
+        safe_print(f"Warning: Cloud update attendance failed (using local fallback). Error: {e}")
 
 def cloud_add_timetable_slot(day, subject):
     try:
@@ -141,7 +149,7 @@ def cloud_add_timetable_slot(day, subject):
         if not exists:
             wks_tt.append_row([day, subject])
     except Exception as e:
-        print(f"Warning: Cloud add timetable slot failed (using local fallback). Error: {e}")
+        safe_print(f"Warning: Cloud add timetable slot failed (using local fallback). Error: {e}")
 
 def cloud_delete_timetable_slot(day, subject):
     try:
@@ -155,7 +163,7 @@ def cloud_delete_timetable_slot(day, subject):
         if found_row_idx != -1:
             wks_tt.delete_rows(found_row_idx)
     except Exception as e:
-        print(f"Warning: Cloud delete timetable slot failed (using local fallback). Error: {e}")
+        safe_print(f"Warning: Cloud delete timetable slot failed (using local fallback). Error: {e}")
 
 def sync_local_to_cloud():
     try:
@@ -177,36 +185,39 @@ def sync_local_to_cloud():
             rows = df_att.values.tolist()
             wks_att.append_rows(rows)
             
-        print("Google Sheets: Local data successfully pushed to cloud.")
+        safe_print("Google Sheets: Local data successfully pushed to cloud.")
     except Exception as e:
-        print(f"Warning: Local to cloud sync failed. Error: {e}")
+        safe_print(f"Warning: Local to cloud sync failed. Error: {e}")
 
 # Set up the weekly timetable to guarantee at least 3 subjects per day (using 6 unique subjects)
 def setup_timetable():
     timetable_data = [
         {"Day_of_Week": "Monday", "Subject_Name": "CNM"},
-        {"Day_of_Week": "Monday", "Subject_Name": "DS-I"},
-        {"Day_of_Week": "Monday", "Subject_Name": "DBMSL"},
+        {"Day_of_Week": "Monday", "Subject_Name": "DS 1"},
+        {"Day_of_Week": "Monday", "Subject_Name": "DBMSL (Lab)"},
         
-        {"Day_of_Week": "Tuesday", "Subject_Name": "OS"},
-        {"Day_of_Week": "Tuesday", "Subject_Name": "DS-I"},
-        {"Day_of_Week": "Tuesday", "Subject_Name": "OSCL"},
+        {"Day_of_Week": "Tuesday", "Subject_Name": "OSC"},
+        {"Day_of_Week": "Tuesday", "Subject_Name": "DS 1"},
+        {"Day_of_Week": "Tuesday", "Subject_Name": "OSCL (Lab)"},
         {"Day_of_Week": "Tuesday", "Subject_Name": "DBMS"},
+        {"Day_of_Week": "Tuesday", "Subject_Name": "OOPL Eval"},
         
-        {"Day_of_Week": "Wednesday", "Subject_Name": "DS-I L"},
-        {"Day_of_Week": "Wednesday", "Subject_Name": "SCHIE"},
-        {"Day_of_Week": "Wednesday", "Subject_Name": "OOPL"},
-        {"Day_of_Week": "Wednesday", "Subject_Name": "DBMS"},
+        {"Day_of_Week": "Wednesday", "Subject_Name": "OOPL (Lab)"},
+        {"Day_of_Week": "Wednesday", "Subject_Name": "RIDE"},
+        {"Day_of_Week": "Wednesday", "Subject_Name": "RIDE"},
+        {"Day_of_Week": "Wednesday", "Subject_Name": "OOPL Eval"},
+        {"Day_of_Week": "Wednesday", "Subject_Name": "DBMSL Eval"},
         
+        {"Day_of_Week": "Thursday", "Subject_Name": "CNM (Tut)"},
         {"Day_of_Week": "Thursday", "Subject_Name": "CNM"},
-        {"Day_of_Week": "Thursday", "Subject_Name": "OOPL"},
+        {"Day_of_Week": "Thursday", "Subject_Name": "OOPL (Lab)"},
         {"Day_of_Week": "Thursday", "Subject_Name": "DBMS"},
-        {"Day_of_Week": "Thursday", "Subject_Name": "OS"},
+        {"Day_of_Week": "Thursday", "Subject_Name": "OSCL Eval"},
         
         {"Day_of_Week": "Friday", "Subject_Name": "CNM"},
-        {"Day_of_Week": "Friday", "Subject_Name": "DS-I"},
+        {"Day_of_Week": "Friday", "Subject_Name": "DS 1"},
         {"Day_of_Week": "Friday", "Subject_Name": "DBMS"},
-        {"Day_of_Week": "Friday", "Subject_Name": "OS"}
+        {"Day_of_Week": "Friday", "Subject_Name": "OSC"}
     ]
     df = pd.DataFrame(timetable_data)
     df.to_csv(TIMETABLE_PATH, index=False)
@@ -921,7 +932,7 @@ elif page == "Manage Timetable":
                                 if not df_att_c.empty:
                                     wks_att.append_rows(df_att_c.values.tolist())
                             except Exception as cloud_err:
-                                print(f"Asynchronous cloud purge failed: {cloud_err}")
+                                safe_print(f"Asynchronous cloud purge failed: {cloud_err}")
                                 
                         threading.Thread(target=perform_cloud_purge, args=(df_tt_clean, df_att_clean), daemon=True).start()
                         

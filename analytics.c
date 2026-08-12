@@ -47,11 +47,16 @@ int subject_count = 0;
 void get_today_date(char *date_str, size_t max_len) {
     time_t t = time(NULL);
     struct tm *tm_info = localtime(&t);
+    if (!tm_info) {
+        snprintf(date_str, max_len, "01-01-70");
+        return;
+    }
     strftime(date_str, max_len, "%d-%m-%y", tm_info);
 }
 
 // Helper to determine day of week for any dd-mm-yy string
 int get_day_of_week(const char *date_str, char *out_day, size_t max_len) {
+    if (!date_str || !out_day || max_len == 0) return -1;
     int d, m, y;
     if (sscanf(date_str, "%d-%d-%d", &d, &m, &y) != 3) {
         return -1;
@@ -64,7 +69,10 @@ int get_day_of_week(const char *date_str, char *out_day, size_t max_len) {
     tm_info.tm_isdst = -1;
     
     time_t t_val = mktime(&tm_info);
-    if (t_val == -1) {
+    if (t_val == (time_t)-1) {
+        return -1;
+    }
+    if (tm_info.tm_wday < 0 || tm_info.tm_wday > 6) {
         return -1;
     }
     
@@ -181,9 +189,15 @@ void init_attendance() {
                 }
             }
             if (!found && attendance_count < MAX_RECORDS) {
-                strcpy(attendance[attendance_count].date, today);
-                strcpy(attendance[attendance_count].subject, timetable[i].subject);
-                strcpy(attendance[attendance_count].status, "Present");
+                strncpy(attendance[attendance_count].date, today, sizeof(attendance[attendance_count].date) - 1);
+                attendance[attendance_count].date[sizeof(attendance[attendance_count].date) - 1] = '\0';
+                
+                strncpy(attendance[attendance_count].subject, timetable[i].subject, sizeof(attendance[attendance_count].subject) - 1);
+                attendance[attendance_count].subject[sizeof(attendance[attendance_count].subject) - 1] = '\0';
+                
+                strncpy(attendance[attendance_count].status, "Present", sizeof(attendance[attendance_count].status) - 1);
+                attendance[attendance_count].status[sizeof(attendance[attendance_count].status) - 1] = '\0';
+                
                 attendance_count++;
                 added_count++;
             }
@@ -258,12 +272,14 @@ void calculate_analytics() {
             }
         }
         
-        if (strcmp(status, "Present") == 0) {
-            subjects[found_idx].presents++;
-        } else if (strcmp(status, "Absent") == 0) {
-            subjects[found_idx].absents++;
-        } else if (strcmp(status, "Holiday") == 0) {
-            subjects[found_idx].holidays++;
+        if (found_idx >= 0 && found_idx < 100) {
+            if (strcmp(status, "Present") == 0) {
+                subjects[found_idx].presents++;
+            } else if (strcmp(status, "Absent") == 0) {
+                subjects[found_idx].absents++;
+            } else if (strcmp(status, "Holiday") == 0) {
+                subjects[found_idx].holidays++;
+            }
         }
     }
     
@@ -377,7 +393,7 @@ int main(int argc, char *argv[]) {
     if (strcmp(argv[1], "init") == 0) {
         init_attendance();
     } else if (strcmp(argv[1], "update") == 0) {
-        if (argc < 5) {
+        if (argc < 5 || !argv[2] || !argv[3] || !argv[4]) {
             fprintf(stderr, "Usage: %s update <date> <subject> <status>\n", argv[0]);
             return 1;
         }
