@@ -1,24 +1,124 @@
 Date,Subject_Name,Status
-06-07-26,CNM,Absent
-06-07-26,DS-I,Absent
-06-07-26,DBMSL,Absent
-07-07-26,OS,Absent
-07-07-26,DS-I,Absent
-07-07-26,OSCL,Absent
-07-07-26,DBMS,Absent
-08-07-26,DS-I L,Absent
-08-07-26,SCHIE,Absent
-08-07-26,OOPL,Absent
-08-07-26,DBMS,Absent
-09-07-26,CNM,Absent
-09-07-26,OOPL,Absent
-09-07-26,DBMS,Absent
-09-07-26,OS,Absent
-10-07-26,CNM,Absent
-10-07-26,DS-I,Absent
-10-07-26,DBMS,Absent
-10-07-26,OS,Absent
-13-08-26,CNM,Present
-13-08-26,OOPL,Present
-13-08-26,DBMS,Present
-13-08-26,OS,Present
+03-08-26,CNM,Absent
+03-08-26,DS,Absent
+03-08-26,DS Lab,Absent
+03-08-26,OS,Absent
+04-08-26,CNM-TU,Absent
+04-08-26,OOP Lab,Absent
+04-08-26,Peace,Present
+05-08-26,CNM,Absent
+05-08-26,DS,Absent
+05-08-26,DS Lab,Absent
+05-08-26,OS,Absent
+06-07-26,CNM,Present
+06-07-26,CNM-TU,Present
+06-07-26,DBMS,Present
+06-07-26,DBMS Lab,Present
+06-07-26,DS,Present
+06-07-26,DS Lab,Present
+06-07-26,OOP Lab,Present
+06-07-26,OS,Present
+06-07-26,OS Lab,Present
+06-07-26,Peace,Present
+07-07-26,DBMS,Present
+07-07-26,DBMS Lab,Present
+07-07-26,OS Lab,Present
+07-08-26,CNM,Absent
+07-08-26,DS,Absent
+07-08-26,OOP Lab,Absent
+07-08-26,OS,Absent
+08-07-26,CNM,Present
+08-07-26,DBMS,Present
+08-07-26,DBMS Lab,Present
+08-07-26,DS,Present
+08-07-26,DS Lab,Present
+08-07-26,OS,Present
+08-07-26,OS Lab,Present
+09-07-26,DBMS,Present
+09-07-26,DBMS Lab,Present
+09-07-26,OOP Lab,Present
+09-07-26,OS Lab,Present
+09-07-26,Peace,Present
+10-07-26,CNM,Present
+10-07-26,DBMS,Present
+10-07-26,DBMS Lab,Present
+10-07-26,DS,Present
+10-07-26,DS Lab,Present
+10-07-26,OS,Present
+10-07-26,OS Lab,Present
+11-08-26,DS,Absent
+12-08-26,OOP Lab,Absent
+13-07-26,DBMS,Present
+13-07-26,DBMS Lab,Present
+13-07-26,OS Lab,Present
+13-08-26,DS,Absent
+14-07-26,CNM,Present
+14-07-26,DBMS,Present
+14-07-26,DBMS Lab,Present
+14-07-26,DS,Present
+14-07-26,DS Lab,Present
+14-07-26,OOP Lab,Present
+14-07-26,OS,Present
+14-07-26,OS Lab,Present
+14-07-26,Peace,Present
+15-07-26,CNM-TU,Present
+15-07-26,DBMS,Present
+15-07-26,DBMS Lab,Present
+15-07-26,OS Lab,Present
+16-07-26,CNM,Present
+16-07-26,DBMS,Present
+16-07-26,DBMS Lab,Present
+16-07-26,DS,Present
+16-07-26,DS Lab,Present
+16-07-26,OS,Present
+16-07-26,OS Lab,Present
+17-07-26,DBMS,Present
+17-07-26,DBMS Lab,Present
+17-07-26,OOP Lab,Present
+17-07-26,OS Lab,Absent
+17-07-26,Peace,Present
+20-07-26,CNM,Present
+20-07-26,DBMS,Present
+20-07-26,DBMS Lab,Absent
+20-07-26,DS,Present
+20-07-26,DS Lab,Present
+20-07-26,OS,Present
+20-07-26,OS Lab,Absent
+21-07-26,DBMS,Present
+21-07-26,DBMS Lab,Absent
+21-07-26,OS Lab,Absent
+22-07-26,CNM,Present
+22-07-26,DBMS,Absent
+22-07-26,DBMS Lab,Absent
+22-07-26,DS,Present
+22-07-26,DS Lab,Present
+22-07-26,OOP Lab,Present
+22-07-26,OS,Absent
+22-07-26,OS Lab,Absent
+22-07-26,Peace,Present
+23-07-26,DBMS,Absent
+23-07-26,DBMS Lab,Absent
+23-07-26,OS Lab,Absent
+24-07-26,CNM,Present
+24-07-26,CNM-TU,Absent
+24-07-26,DBMS,Absent
+24-07-26,DBMS Lab,Absent
+24-07-26,DS,Absent
+24-07-26,DS Lab,Present
+24-07-26,OS,Absent
+24-07-26,OS Lab,Absent
+27-07-26,DBMS,Absent
+27-07-26,DBMS Lab,Absent
+27-07-26,OOP Lab,Present
+27-07-26,OS Lab,Absent
+27-07-26,Peace,Present
+28-07-26,CNM,Present
+28-07-26,DS,Absent
+28-07-26,DS Lab,Absent
+28-07-26,OS,Absent
+30-07-26,CNM,Absent
+30-07-26,DS,Absent
+30-07-26,DS Lab,Absent
+30-07-26,OOP Lab,Present
+30-07-26,OS,Absent
+30-07-26,Peace,Present

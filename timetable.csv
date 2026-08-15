@@ -1,20 +1,24 @@
 Day_of_Week,Subject_Name
 Monday,CNM
-Monday,DS-I
-Monday,DBMSL
+Monday,DS
+Monday,DBMS Lab
+Monday,DBMS Lab
 Tuesday,OS
-Tuesday,DS-I
-Tuesday,OSCL
+Tuesday,DS
+Tuesday,OS Lab
+Tuesday,OS Lab
 Tuesday,DBMS
-Wednesday,DS-I L
-Wednesday,SCHIE
-Wednesday,OOPL
-Wednesday,DBMS
+Wednesday,DS Lab
+Wednesday,DS Lab
+Wednesday,Peace
 Thursday,CNM
-Thursday,OOPL
+Thursday,CNM-TU
+Thursday,OOP Lab
+Thursday,OOP Lab
+Thursday,DBMS
 Thursday,DBMS
 Thursday,OS
 Friday,CNM
-Friday,DS-I
+Friday,DS
 Friday,DBMS
 Friday,OS

@@ -189,60 +189,91 @@ def sync_local_to_cloud():
     except Exception as e:
         safe_print(f"Warning: Local to cloud sync failed. Error: {e}")
 
-# Set up the weekly timetable to guarantee at least 3 subjects per day (using 6 unique subjects)
+# Canonical weekly timetable — labs listed twice to count as 2 sessions each
 def setup_timetable():
     timetable_data = [
+        # Monday
         {"Day_of_Week": "Monday", "Subject_Name": "CNM"},
-        {"Day_of_Week": "Monday", "Subject_Name": "DS 1"},
-        {"Day_of_Week": "Monday", "Subject_Name": "DBMSL (Lab)"},
-        
-        {"Day_of_Week": "Tuesday", "Subject_Name": "OSC"},
-        {"Day_of_Week": "Tuesday", "Subject_Name": "DS 1"},
-        {"Day_of_Week": "Tuesday", "Subject_Name": "OSCL (Lab)"},
+        {"Day_of_Week": "Monday", "Subject_Name": "DS"},
+        {"Day_of_Week": "Monday", "Subject_Name": "DBMS Lab"},
+        {"Day_of_Week": "Monday", "Subject_Name": "DBMS Lab"},  # 2 sessions
+        # Tuesday
+        {"Day_of_Week": "Tuesday", "Subject_Name": "OS"},
+        {"Day_of_Week": "Tuesday", "Subject_Name": "DS"},
+        {"Day_of_Week": "Tuesday", "Subject_Name": "OS Lab"},
+        {"Day_of_Week": "Tuesday", "Subject_Name": "OS Lab"},   # 2 sessions
         {"Day_of_Week": "Tuesday", "Subject_Name": "DBMS"},
-        {"Day_of_Week": "Tuesday", "Subject_Name": "OOPL Eval"},
-        
-        {"Day_of_Week": "Wednesday", "Subject_Name": "OOPL (Lab)"},
-        {"Day_of_Week": "Wednesday", "Subject_Name": "RIDE"},
-        {"Day_of_Week": "Wednesday", "Subject_Name": "RIDE"},
-        {"Day_of_Week": "Wednesday", "Subject_Name": "OOPL Eval"},
-        {"Day_of_Week": "Wednesday", "Subject_Name": "DBMSL Eval"},
-        
-        {"Day_of_Week": "Thursday", "Subject_Name": "CNM (Tut)"},
+        # Wednesday
+        {"Day_of_Week": "Wednesday", "Subject_Name": "DS Lab"},
+        {"Day_of_Week": "Wednesday", "Subject_Name": "DS Lab"},  # 2 sessions
+        {"Day_of_Week": "Wednesday", "Subject_Name": "Peace"},
+        # Thursday
         {"Day_of_Week": "Thursday", "Subject_Name": "CNM"},
-        {"Day_of_Week": "Thursday", "Subject_Name": "OOPL (Lab)"},
+        {"Day_of_Week": "Thursday", "Subject_Name": "CNM-TU"},
+        {"Day_of_Week": "Thursday", "Subject_Name": "OOP Lab"},
+        {"Day_of_Week": "Thursday", "Subject_Name": "OOP Lab"},  # 2 sessions
         {"Day_of_Week": "Thursday", "Subject_Name": "DBMS"},
-        {"Day_of_Week": "Thursday", "Subject_Name": "OSCL Eval"},
-        
+        {"Day_of_Week": "Thursday", "Subject_Name": "DBMS"},
+        {"Day_of_Week": "Thursday", "Subject_Name": "OS"},
+        # Friday
         {"Day_of_Week": "Friday", "Subject_Name": "CNM"},
-        {"Day_of_Week": "Friday", "Subject_Name": "DS 1"},
+        {"Day_of_Week": "Friday", "Subject_Name": "DS"},
         {"Day_of_Week": "Friday", "Subject_Name": "DBMS"},
-        {"Day_of_Week": "Friday", "Subject_Name": "OSC"}
+        {"Day_of_Week": "Friday", "Subject_Name": "OS"},
     ]
     df = pd.DataFrame(timetable_data)
     df.to_csv(TIMETABLE_PATH, index=False)
 
-# Setup June 2026 Mock Attendance (June 1 to June 30, 2026) in dd-mm-yy format
+# Seed attendance with real portal counts distributed across Jul 6 – Aug 14, 2026
 def setup_mock_attendance():
-    tt_df = pd.read_csv(TIMETABLE_PATH)
-    records = []
+    from collections import defaultdict
+
+    # Real attendance counts from college portal: (subject, presents, absents)
+    targets = [
+        ("CNM",      9,  4),
+        ("CNM-TU",   2,  2),
+        ("DS",       7,  8),
+        ("DBMS",     12, 4),
+        ("OS",       6,  7),
+        ("Peace",    8,  0),
+        ("DS Lab",   8,  4),
+        ("OOP Lab",  7,  3),
+        ("DBMS Lab", 10, 6),
+        ("OS Lab",   9,  7),
+    ]
+
+    # Collect all weekdays in semester range (Mon–Fri only)
     start_date = datetime(2026, 7, 6)
-    
-    # Generate mock records from July 6, 2026 to today (July 10, 2026)
-    for day_offset in range(5):
-        curr_date = start_date + timedelta(days=day_offset)
-        date_str = curr_date.strftime("%d-%m-%y")
-        day_of_week = curr_date.strftime("%A")
-        
-        # Get subjects scheduled for this day
-        scheduled = tt_df[tt_df["Day_of_Week"] == day_of_week]["Subject_Name"].tolist()
-        
-        for sub in scheduled:
-            # All marked as Absent (not attended)
-            status = "Absent"
-            records.append({"Date": date_str, "Subject_Name": sub, "Status": status})
-            
+    end_date   = datetime(2026, 8, 14)
+    weekdays = []
+    cur = start_date
+    while cur <= end_date:
+        if cur.weekday() < 5:
+            weekdays.append(cur)
+        cur += timedelta(days=1)
+
+    records = []
+    for subject, presents, absents in targets:
+        total = presents + absents
+        if total == 0:
+            continue
+        # Evenly space `total` dates across the semester
+        step = max(1, len(weekdays) // total)
+        chosen = []
+        idx = 0
+        while len(chosen) < total and idx < len(weekdays):
+            chosen.append(weekdays[idx])
+            idx += step
+        remaining = [d for d in weekdays if d not in chosen]
+        while len(chosen) < total and remaining:
+            chosen.append(remaining.pop(0))
+        chosen = sorted(chosen[:total])
+        for i, d in enumerate(chosen):
+            status = "Present" if i < presents else "Absent"
+            records.append({"Date": d.strftime("%d-%m-%y"), "Subject_Name": subject, "Status": status})
+
     df_mock = pd.DataFrame(records)
+    df_mock.sort_values(["Date", "Subject_Name"], inplace=True)
     df_mock.to_csv(CSV_PATH, index=False)
 
 # Ensure databases exist with correct columns and check for correct timetable size
@@ -446,6 +477,18 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(.below-82-marker):hover {
 # Navigation Menu inside Sidebar (ONLY links/menus)
 st.sidebar.markdown("# ⚙️ Navigation Menu")
 page = st.sidebar.radio("Go to:", ["Dashboard", "Edit History", "Manage Timetable"])
+
+# Push-to-Cloud button (always visible in sidebar)
+st.sidebar.markdown("---")
+st.sidebar.markdown("### ☁️ Cloud Sync")
+if st.sidebar.button("🔄 Push Local Data to Cloud", use_container_width=True):
+    with st.sidebar:
+        with st.spinner("Syncing to Google Sheets…"):
+            try:
+                sync_local_to_cloud()
+                st.success("✅ All local data pushed to Google Sheets!")
+            except Exception as _sync_err:
+                st.error(f"Sync failed: {_sync_err}")
 
 @st.cache_data
 def get_cached_status():
