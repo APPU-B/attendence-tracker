@@ -663,15 +663,15 @@ if page == "Dashboard":
                     # E. Card Bottoms: Override buttons inside the card box container
                     b_cols = st.columns(3)
                     with b_cols[0]:
-                        if st.button("Present", key=f"btn_p_{sub}", use_container_width=True):
+                        if st.button("Present", key=f"btn_p_{sub}_{idx}", use_container_width=True):
                             record_attendance_update(today_str, sub, "Present")
                             st.rerun()
                     with b_cols[1]:
-                        if st.button("Absent", key=f"btn_a_{sub}", use_container_width=True):
+                        if st.button("Absent", key=f"btn_a_{sub}_{idx}", use_container_width=True):
                             record_attendance_update(today_str, sub, "Absent")
                             st.rerun()
                     with b_cols[2]:
-                        if st.button("Holiday", key=f"btn_h_{sub}", use_container_width=True):
+                        if st.button("Holiday", key=f"btn_h_{sub}_{idx}", use_container_width=True):
                             record_attendance_update(today_str, sub, "Holiday")
                             st.rerun()
     else:
